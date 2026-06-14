@@ -2,16 +2,277 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TeleChat - MVP Chat App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0e1621">
+  <meta name="description" content="TeleChat - Fast and secure messaging app">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TeleChat">
+  <meta name="mobile-web-app-capable" content="yes">
+  
+  <!-- Open Graph -->
+  <meta property="og:title" content="TeleChat - Messaging App">
+  <meta property="og:description" content="Fast and secure messaging app">
+  <meta property="og:type" content="website">
+
+  <title>TeleChat - Messaging App</title>
+
+  <!-- Preconnect for performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%236ab3f3'/><path d='M25 50l10 10 30-30' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%236ab3f3'/><path d='M25 50l10 10 30-30' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+
+  <!-- Manifest for PWA -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Styles -->
   <link rel="stylesheet" href="css/style.css">
+
+  <!-- Inline critical loading styles -->
+  <style>
+    .app-loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #0e1621;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.3s ease;
+    }
+    .app-loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .app-loader .logo {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 20px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .app-loader .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #242f3d;
+      border-top-color: #6ab3f3;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .app-loader .loader-text {
+      margin-top: 16px;
+      color: #8a9bae;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.8; }
+    }
+
+    /* Toast notifications */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      background: #17212b;
+      border: 1px solid #242f3d;
+      border-radius: 8px;
+      padding: 12px 20px;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      animation: slideIn 0.3s ease;
+      max-width: 320px;
+    }
+    .toast.success { border-left: 3px solid #4caf50; }
+    .toast.error { border-left: 3px solid #ff5252; }
+    .toast.info { border-left: 3px solid #6ab3f3; }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* Connection status bar */
+    .connection-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 6px;
+      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 12px;
+      z-index: 9998;
+      transition: transform 0.3s ease;
+      transform: translateY(-100%);
+    }
+    .connection-bar.offline {
+      background: #ff5252;
+      color: #fff;
+      transform: translateY(0);
+    }
+    .connection-bar.reconnecting {
+      background: #ff9800;
+      color: #fff;
+      transform: translateY(0);
+    }
+  </style>
 </head>
 <body>
-  <div id="app">
-    <!-- Pages will be rendered here -->
+  <!-- Connection status -->
+  <div class="connection-bar" id="connectionBar">
+    <span id="connectionText">No internet connection</span>
   </div>
+
+  <!-- Loading screen -->
+  <div class="app-loader" id="appLoader">
+    <svg class="logo" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="45" fill="#6ab3f3"/>
+      <path d="M30 50 L44 64 L70 38" stroke="white" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="spinner"></div>
+    <div class="loader-text">Loading TeleChat...</div>
+  </div>
+
+  <!-- Toast container for notifications -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Main app container -->
+  <div id="app">
+    <!-- Pages will be rendered here by router -->
+  </div>
+
+  <!-- Utility scripts -->
+  <script>
+    // Toast notification system
+    function showToast(message, type = 'info', duration = 3000) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        toast.style.transition = 'all 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
+    }
+
+    // Connection status detection
+    function updateConnectionStatus() {
+      const bar = document.getElementById('connectionBar');
+      const text = document.getElementById('connectionText');
+
+      if (!navigator.onLine) {
+        bar.className = 'connection-bar offline';
+        text.textContent = 'No internet connection';
+      } else {
+        bar.className = 'connection-bar';
+      }
+    }
+
+    window.addEventListener('online', () => {
+      updateConnectionStatus();
+      showToast('Back online', 'success');
+    });
+
+    window.addEventListener('offline', () => {
+      updateConnectionStatus();
+      showToast('Connection lost', 'error');
+    });
+
+    // Hide loader when app is ready
+    function hideLoader() {
+      const loader = document.getElementById('appLoader');
+      loader.classList.add('hidden');
+      setTimeout(() => loader.remove(), 300);
+    }
+
+    // Mobile back button support
+    window.addEventListener('popstate', () => {
+      // Handled by router hashchange
+    });
+
+    // Prevent pull-to-refresh on mobile (can interfere with chat scroll)
+    document.body.addEventListener('touchmove', function(e) {
+      if (e.target.closest('.messages-area') || e.target.closest('.chat-list')) return;
+      if (document.scrollingElement.scrollTop === 0) {
+        // Allow normal behavior in scrollable areas
+      }
+    }, { passive: true });
+
+    // Keyboard handling for mobile - resize chat area
+    if ('visualViewport' in window) {
+      window.visualViewport.addEventListener('resize', () => {
+        const chatInput = document.querySelector('.chat-input');
+        if (chatInput) {
+          // Ensure input stays visible when keyboard opens
+          setTimeout(() => {
+            const msgArea = document.getElementById('messagesArea');
+            if (msgArea) msgArea.scrollTop = msgArea.scrollHeight;
+          }, 100);
+        }
+      });
+    }
+  </script>
+
+  <!-- App scripts -->
   <script src="js/api.js"></script>
   <script src="js/router.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- Post-load initialization -->
+  <script>
+    // Hide loader once app scripts are loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      hideLoader();
+      updateConnectionStatus();
+    });
+
+    // If DOMContentLoaded already fired
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      hideLoader();
+      updateConnectionStatus();
+    }
+
+    // Register service worker for PWA (if available)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {
+          // SW registration failed - app works fine without it
+        });
+      });
+    }
+
+    // Request notification permission (non-blocking)
+    if ('Notification' in window && Notification.permission === 'default') {
+      // Delay to not interrupt user flow
+      setTimeout(() => {
+        // Only ask when user is logged in
+        if (localStorage.getItem('token')) {
+          Notification.requestPermission();
+        }
+      }, 10000);
+    }
+  </script>
 </body>
 </html>
